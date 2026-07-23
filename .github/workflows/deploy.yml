@@ -1,0 +1,114 @@
+# ═══════════════════════════════════════════════════════════════════════════
+# .github/workflows/deploy.yml — CI/CD for the ToolPool backend
+# ═══════════════════════════════════════════════════════════════════════════
+# WHY GitHub Actions?
+#   Every push/PR automatically tests your code.
+#   Merges to main can trigger a production deploy (Render).
+#
+# SETUP (one-time):
+#   1. Deploy this repo as a Docker Web Service on Render
+#   2. Copy Render's "Deploy Hook" URL
+#   3. GitHub → repo → Settings → Secrets → Actions
+#      Add secret: RENDER_DEPLOY_HOOK_URL = <that URL>
+# ═══════════════════════════════════════════════════════════════════════════
+
+name: Backend CI/CD
+
+# When should this workflow run?
+on:
+  push:
+    branches: [main]       # every push to main
+  pull_request:
+    branches: [main]       # every PR targeting main
+
+jobs:
+  # ── JOB 1: Test ─────────────────────────────────────────────────────────
+  test:
+    name: Run Django tests
+    runs-on: ubuntu-latest  # GitHub's free Linux virtual machine
+
+    # Spin up Postgres as a "service container" next to our job
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_DB: toolpool_test
+          POSTGRES_USER: toolpool
+          POSTGRES_PASSWORD: toolpool
+        ports:
+          - 5432:5432
+        # Wait until Postgres accepts connections
+        options: >-
+          --health-cmd "pg_isready -U toolpool -d toolpool_test"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    steps:
+      # Step 1: Download this repo's code onto the runner
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      # Step 2: Install the Python version we use locally
+      - name: Set up Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: 'pip'  # cache pip downloads for faster runs
+
+      # Step 3: Install system libs for psycopg2 + Pillow
+      - name: Install system dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libpq-dev
+
+      # Step 4: Install Python packages from requirements.txt
+      - name: Install Python dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      # Step 5: Apply migrations against the Postgres service
+      - name: Run migrations
+        env:
+          DATABASE_URL: postgres://toolpool:toolpool@localhost:5432/toolpool_test
+          SECRET_KEY: ci-test-secret-key
+          DEBUG: "True"
+        run: python manage.py migrate
+
+      # Step 6: Run Django's test suite (add tests later in apps/*/tests.py)
+      - name: Run tests
+        env:
+          DATABASE_URL: postgres://toolpool:toolpool@localhost:5432/toolpool_test
+          SECRET_KEY: ci-test-secret-key
+          DEBUG: "True"
+        run: python manage.py test
+
+      # Step 7: Quick sanity check — Django can start and load URLs
+      - name: Check Django project
+        env:
+          DATABASE_URL: postgres://toolpool:toolpool@localhost:5432/toolpool_test
+          SECRET_KEY: ci-test-secret-key
+          DEBUG: "True"
+        run: python manage.py check
+
+  # ── JOB 2: Deploy (only on main, after tests pass) ──────────────────────
+  deploy:
+    name: Deploy to Render
+    needs: test                 # do not deploy if tests failed
+    runs-on: ubuntu-latest
+    # Only run this job on pushes to main (not on pull requests)
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+
+    steps:
+      - name: Trigger Render deploy hook
+        # curl POSTs to the secret URL; Render rebuilds and redeploys
+        # If the secret is missing, print a helpful message instead of failing hard
+        run: |
+          if [ -z "${{ secrets.RENDER_DEPLOY_HOOK_URL }}" ]; then
+            echo "RENDER_DEPLOY_HOOK_URL secret not set — skipping deploy."
+            echo "Add it in GitHub → Settings → Secrets and variables → Actions"
+            exit 0
+          fi
+          curl -sS -X POST "${{ secrets.RENDER_DEPLOY_HOOK_URL }}"
+          echo "Deploy triggered."
