@@ -1,0 +1,61 @@
+# ═══════════════════════════════════════════════════════════════════════════
+# docker-compose.yml — Run Django + PostgreSQL together with one command
+# ═══════════════════════════════════════════════════════════════════════════
+# WHY Compose?
+#   The API needs a database. Compose starts BOTH containers and networks them.
+#
+# Commands:
+#   docker compose up --build     # start (rebuild images if Dockerfile changed)
+#   docker compose down           # stop and remove containers
+#   docker compose exec web bash  # open a shell inside the Django container
+# ═══════════════════════════════════════════════════════════════════════════
+
+services:
+  # ── PostgreSQL database ─────────────────────────────────────────────────
+  db:
+    # Official Postgres image, alpine = smaller download
+    image: postgres:16-alpine
+    # Environment variables configure the default database/user/password
+    environment:
+      POSTGRES_DB: toolpool
+      POSTGRES_USER: toolpool
+      POSTGRES_PASSWORD: toolpool
+    # Persist data in a named volume so it survives container restarts
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    # Expose 5432 to your host (optional — useful for GUI tools like DBeaver)
+    ports:
+      - "5432:5432"
+    # Healthcheck so `web` waits until Postgres is actually ready
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U toolpool -d toolpool"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  # ── Django API ──────────────────────────────────────────────────────────
+  web:
+    # Build the image from the Dockerfile in this folder
+    build: .
+    # Dev command: migrate then run Django's built-in server (auto-reloads on code change)
+    command: sh -c "python manage.py migrate && python manage.py seed_categories && python manage.py runserver 0.0.0.0:8000"
+    # Mount local code into the container so edits appear without rebuilding
+    volumes:
+      - .:/app
+    ports:
+      - "8000:8000"
+    environment:
+      # Host is "db" — Docker DNS resolves the service name to the db container
+      DATABASE_URL: postgres://toolpool:toolpool@db:5432/toolpool
+      SECRET_KEY: dev-secret-change-me-in-production
+      DEBUG: "True"
+      ALLOWED_HOSTS: localhost,127.0.0.1,web
+      CORS_ALLOWED_ORIGINS: http://localhost:5173,http://127.0.0.1:5173
+    # Wait until Postgres healthcheck passes
+    depends_on:
+      db:
+        condition: service_healthy
+
+# Named volumes live outside containers (data survives `docker compose down`)
+volumes:
+  postgres_data:
