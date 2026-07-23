@@ -29,7 +29,7 @@ from .serializers import (
 class CategoryViewSet(viewsets.ModelViewSet):
     """
     /api/categories/
-    GET = anyone authenticated
+    GET = public (so browse works before login)
     POST/PUT/DELETE = admin only
     """
 
@@ -41,6 +41,9 @@ class CategoryViewSet(viewsets.ModelViewSet):
     def get_permissions(self):
         if self.action in ('create', 'update', 'partial_update', 'destroy'):
             return [IsAdminRole()]
+        # AllowAny for list/retrieve — neighbors can browse categories without an account
+        if self.action in ('list', 'retrieve'):
+            return [permissions.AllowAny()]
         return [permissions.IsAuthenticated()]
 
     def get_queryset(self):
@@ -60,15 +63,23 @@ class ToolViewSet(viewsets.ModelViewSet):
 
     # MultiPartParser = needed for image uploads from forms
     parser_classes = [MultiPartParser, FormParser, JSONParser]
-    permission_classes = [permissions.IsAuthenticated, IsOwnerOrReadOnly]
     filterset_fields = ('category', 'status', 'condition', 'neighborhood')
     search_fields = ('title', 'description', 'neighborhood')
     ordering_fields = ('daily_fee', 'created_at', 'title')
+
+    def get_permissions(self):
+        # Public browse + detail + availability calendar
+        if self.action in ('list', 'retrieve', 'availability'):
+            return [permissions.AllowAny()]
+        # Create/edit/status/images require login (+ owner checks via IsOwnerOrReadOnly)
+        return [permissions.IsAuthenticated(), IsOwnerOrReadOnly()]
 
     def get_queryset(self):
         qs = Tool.objects.select_related('category', 'owner').prefetch_related('images')
         # Optional: ?mine=1 → only tools owned by current user (lender dashboard)
         if self.request.query_params.get('mine') == '1':
+            if not self.request.user.is_authenticated:
+                return qs.none()
             return qs.filter(owner=self.request.user)
         return qs
 
