@@ -1,4 +1,6 @@
 from django.db import migrations
+from django.utils.text import slugify
+
 
 def create_default_categories(apps, schema_editor):
     Category = apps.get_model('tools', 'Category')
@@ -12,7 +14,11 @@ def create_default_categories(apps, schema_editor):
     ]
     
     for cat_name in categories:
-        Category.objects.get_or_create(name=cat_name)
+        Category.objects.get_or_create(
+            name=cat_name,
+            defaults={'slug': slugify(cat_name)}
+        )
+
 
 def remove_default_categories(apps, schema_editor):
     Category = apps.get_model('tools', 'Category')
@@ -23,6 +29,7 @@ def remove_default_categories(apps, schema_editor):
         'Ladders & Scaffolding',
         'Cleaning & Pressure Washers',
     ]).delete()
+
 
 class Migration(migrations.Migration):
 
