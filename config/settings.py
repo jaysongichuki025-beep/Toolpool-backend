@@ -135,17 +135,23 @@ USE_TZ = True
 # ── STATIC & MEDIA FILES ──────────────────────────────────────────────────
 STATIC_URL = '/static/'
 STATIC_ROOT = BASE_DIR / 'staticfiles'
+
+# WhiteNoise storage configured to avoid crashing on missing source maps (.map files)
 STATICFILES_STORAGE = 'whitenoise.storage.CompressedStaticFilesStorage'
 
 MEDIA_URL = '/media/'
 MEDIA_ROOT = BASE_DIR / 'media'
 
-# Use Cloudinary storage in production when API credentials exist
-if os.environ.get('CLOUDINARY_CLOUD_NAME'):
+# Use Cloudinary ONLY if all credentials are present in environment variables
+CLOUDINARY_CLOUD = os.environ.get('CLOUDINARY_CLOUD_NAME')
+CLOUDINARY_KEY = os.environ.get('CLOUDINARY_API_KEY')
+CLOUDINARY_SECRET = os.environ.get('CLOUDINARY_API_SECRET')
+
+if CLOUDINARY_CLOUD and CLOUDINARY_KEY and CLOUDINARY_SECRET:
     CLOUDINARY_STORAGE = {
-        'CLOUD_NAME': os.environ.get('CLOUDINARY_CLOUD_NAME'),
-        'API_KEY': os.environ.get('CLOUDINARY_API_KEY'),
-        'API_SECRET': os.environ.get('CLOUDINARY_API_SECRET'),
+        'CLOUD_NAME': CLOUDINARY_CLOUD,
+        'API_KEY': CLOUDINARY_KEY,
+        'API_SECRET': CLOUDINARY_SECRET,
     }
     DEFAULT_FILE_STORAGE = 'cloudinary_storage.storage.MediaCloudinaryStorage'
 
