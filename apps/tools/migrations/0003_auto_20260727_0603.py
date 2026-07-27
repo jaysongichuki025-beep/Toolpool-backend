@@ -27,7 +27,7 @@ def remove_default_categories(apps, schema_editor):
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('tools', '0002_initial'),  # Or whatever your previous migration was named
+        ('tools', '0002_initial'),
     ]
 
     operations = [
