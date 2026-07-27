@@ -1,10 +1,10 @@
 """
-apps/tools/views.py — Category + Tool ViewSets
+apps/tools/views.py — Category + Tool ViewSets & Public Debug Overview
 """
 
 from django.db.models import Q
 from rest_framework import permissions, status, viewsets
-from rest_framework.decorators import action
+from rest_framework.decorators import action, api_view, permission_classes
 from rest_framework.parsers import FormParser, JSONParser, MultiPartParser
 from rest_framework.response import Response
 
@@ -19,6 +19,25 @@ from .serializers import (
     ToolSerializer,
     ToolStatusSerializer,
 )
+
+
+@api_view(['GET'])
+@permission_classes([AllowAny])
+def public_debug_overview(request):
+    """Public JSON endpoint to view backend database stats without logging in."""
+    tools = Tool.objects.values('id', 'title', 'status', 'daily_fee', 'neighborhood')
+    categories = Category.objects.values('id', 'name', 'slug')
+    rentals = RentalRequest.objects.values('id', 'status', 'start_date', 'end_date')
+
+    return Response({
+        'status': 'online',
+        'total_tools': tools.count(),
+        'total_categories': categories.count(),
+        'total_rentals': rentals.count(),
+        'tools': list(tools),
+        'categories': list(categories),
+        'rentals': list(rentals),
+    })
 
 
 class CategoryViewSet(viewsets.ModelViewSet):
