@@ -2,10 +2,6 @@
 ═══════════════════════════════════════════════════════════════════════════
 config/settings.py — Central configuration for the entire Django project
 ═══════════════════════════════════════════════════════════════════════════
-WHY this file exists:
-  Every Django setting (database, auth, CORS, JWT, installed apps) lives here.
-  Django reads this once when the server starts.
-═══════════════════════════════════════════════════════════════════════════
 """
 
 # ── IMPORTS ───────────────────────────────────────────────────────────────
@@ -40,17 +36,19 @@ INSTALLED_APPS = [
     'django.contrib.contenttypes',
     'django.contrib.sessions',
     'django.contrib.messages',
-    'cloudinary_storage',         # Cloudinary media storage (must be before staticfiles)
+    
+    # Cloudinary storage (must come BEFORE staticfiles)
+    'cloudinary_storage',
     'django.contrib.staticfiles',
-    'cloudinary',                 # Cloudinary integration
+    'cloudinary',                 # Core Cloudinary SDK
 
     # Third-party packages
-    'rest_framework',             # Django REST Framework (JSON APIs)
+    'rest_framework',             # Django REST Framework
     'rest_framework_simplejwt',   # JWT token auth
-    'corsheaders',                # Cross-Origin Resource Sharing for React
-    'django_filters',             # Filtering querysets via URL params
+    'corsheaders',                # CORS middleware support
+    'django_filters',             # Filtering querysets
 
-    # Our apps (inside the apps/ package)
+    # Local apps
     'apps.users.apps.UsersConfig',
     'apps.tools.apps.ToolsConfig',
     'apps.rentals.apps.RentalsConfig',
@@ -59,8 +57,8 @@ INSTALLED_APPS = [
 # ── MIDDLEWARE ────────────────────────────────────────────────────────────
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
-    'whitenoise.middleware.WhiteNoiseMiddleware',  # serve static files in prod
-    'corsheaders.middleware.CorsMiddleware',       # handle CORS before CommonMiddleware
+    'whitenoise.middleware.WhiteNoiseMiddleware',  # Serve static assets in prod
+    'corsheaders.middleware.CorsMiddleware',       # CORS handling
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
@@ -139,18 +137,10 @@ STATIC_ROOT = BASE_DIR / 'staticfiles'
 MEDIA_URL = '/media/'
 MEDIA_ROOT = BASE_DIR / 'media'
 
-# Django Storage Configuration (WhiteNoise Standard + Cloudinary Media)
-STORAGES = {
-    "default": {
-        "BACKEND": "django.core.files.storage.FileSystemStorage",
-    },
-    "staticfiles": {
-        # Using standard StaticFilesStorage prevents WhiteNoise from crashing on missing asset references
-        "BACKEND": "whitenoise.storage.StaticFilesStorage",
-    },
-}
+# Standard WhiteNoise storage to avoid post-processing failures
+STATICFILES_STORAGE = 'whitenoise.storage.StaticFilesStorage'
 
-# Use Cloudinary ONLY if all credentials are present in environment variables
+# Cloudinary Configuration
 CLOUDINARY_CLOUD = os.environ.get('CLOUDINARY_CLOUD_NAME')
 CLOUDINARY_KEY = os.environ.get('CLOUDINARY_API_KEY')
 CLOUDINARY_SECRET = os.environ.get('CLOUDINARY_API_SECRET')
@@ -161,7 +151,7 @@ if CLOUDINARY_CLOUD and CLOUDINARY_KEY and CLOUDINARY_SECRET:
         'API_KEY': CLOUDINARY_KEY,
         'API_SECRET': CLOUDINARY_SECRET,
     }
-    STORAGES["default"]["BACKEND"] = "cloudinary_storage.storage.MediaCloudinaryStorage"
+    DEFAULT_FILE_STORAGE = 'cloudinary_storage.storage.MediaCloudinaryStorage'
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
