@@ -136,18 +136,19 @@ USE_TZ = True
 STATIC_URL = '/static/'
 STATIC_ROOT = BASE_DIR / 'staticfiles'
 
-# Django 4.2+ Storage Configuration (WhiteNoise + Cloudinary)
+MEDIA_URL = '/media/'
+MEDIA_ROOT = BASE_DIR / 'media'
+
+# Django Storage Configuration (WhiteNoise Standard + Cloudinary Media)
 STORAGES = {
     "default": {
         "BACKEND": "django.core.files.storage.FileSystemStorage",
     },
     "staticfiles": {
-        "BACKEND": "whitenoise.storage.CompressedStaticFilesStorage",
+        # Using standard StaticFilesStorage prevents WhiteNoise from crashing on missing asset references
+        "BACKEND": "whitenoise.storage.StaticFilesStorage",
     },
 }
-
-MEDIA_URL = '/media/'
-MEDIA_ROOT = BASE_DIR / 'media'
 
 # Use Cloudinary ONLY if all credentials are present in environment variables
 CLOUDINARY_CLOUD = os.environ.get('CLOUDINARY_CLOUD_NAME')
@@ -161,9 +162,6 @@ if CLOUDINARY_CLOUD and CLOUDINARY_KEY and CLOUDINARY_SECRET:
         'API_SECRET': CLOUDINARY_SECRET,
     }
     STORAGES["default"]["BACKEND"] = "cloudinary_storage.storage.MediaCloudinaryStorage"
-
-# Prevent WhiteNoise from throwing errors on missing static assets
-WHITENOISE_MANIFEST_STRICT = False
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
