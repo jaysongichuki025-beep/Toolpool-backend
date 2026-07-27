@@ -33,7 +33,7 @@ SECRET_KEY = os.environ.get(
 )
 
 # DEBUG=True shows detailed error pages. NEVER True in production.
-DEBUG = os.environ.get('DEBUG', 'True').lower() in ('true', '1', 'yes')
+DEBUG = os.environ.get('DEBUG', 'False').lower() in ('true', '1', 'yes')
 
 # ALLOWED_HOSTS = domains/IPs allowed to hit this server
 # Split comma-separated string from env into a Python list
